@@ -30,12 +30,14 @@ struct IOSPhoneTargetWait {
 
 /// One native task grant, bound to this engine/session for at most thirty minutes.
 /// Ordinary calls in that task keep working while the target app is foreground.
-/// A new owner, expiry or explicit retirement needs a new foreground grant.
+/// Full-access sessions grant without a sheet. Binding the preset to the grant
+/// makes a later permission change go through the new preset's approval path.
 @MainActor
 final class IOSPhoneTaskConsent {
   private struct Owner: Equatable {
     let runID: String
     let sessionID: String
+    let permissionPreset: String?
   }
   private let actions: IOSPhoneActions
   private let now: () -> TimeInterval?
@@ -111,20 +113,24 @@ final class IOSPhoneTaskConsent {
                current: @escaping () -> Bool) async -> Bool {
     checkExpiration()
     let operation = generation
-    let owner = Owner(runID: request.runId, sessionID: request.owner.sessionId)
+    let owner = Owner(runID: request.runId, sessionID: request.owner.sessionId,
+      permissionPreset: request.permissionPreset)
     let live = { !Task.isCancelled && current() && self.generation == operation
       && request.expiresAt > Date().timeIntervalSince1970 * 1000 }
     guard live(), detail.utf8.count <= 16_384 else { return false }
     if grantOwner == owner && isGranted {
       return live() && UIApplication.shared.isProtectedDataAvailable
     }
-    // Only the first grant requires our UI. Reusing an owned task must not
-    // wait for this app and pull the person out of the target again.
-    guard live(), await waitForForeground(request, current: live), live() else { return false }
-    let granted = await actions.confirm(request, title: "允许 AI 操控这台手机？",
-      detail: "授权本次对话接下来最多 30 分钟的手机操控任务。AI 可读取屏幕、打开应用、点击、滚动和输入普通文字；本任务内不再逐次弹窗，也不需要反复返回 DSH Go。\n\n密码、验证码和支付步骤仍交给你处理。关闭连接、暂停或结束任务会撤销授权；切到其他 App 后由系统持续任务接续，系统仍可能中断后台工作。\n\n首次动作：\n" + detail,
-      allow: "允许 30 分钟", deny: "拒绝", preview: preview)
-    guard granted, live(), foreground, let now = self.now(), now.isFinite, now >= 0,
+    // Full access already authorizes phone control, including screenshots and
+    // coordinate taps. Other presets retain the foreground task confirmation.
+    if !request.hasFullAccess {
+      guard live(), await waitForForeground(request, current: live), live() else { return false }
+      let granted = await actions.confirm(request, title: "允许 AI 操控这台手机？",
+        detail: "授权本次对话接下来最多 30 分钟的手机操控任务。AI 可读取屏幕、打开应用、点击、滚动和输入普通文字；本任务内不再逐次弹窗，也不需要反复返回 DSH Go。\n\n密码、验证码和支付步骤仍交给你处理。关闭连接、暂停或结束任务会撤销授权；切到其他 App 后由系统持续任务接续，系统仍可能中断后台工作。\n\n首次动作：\n" + detail,
+        allow: "允许 30 分钟", deny: "拒绝", preview: preview)
+      guard granted, live(), foreground else { return false }
+    }
+    guard live(), UIApplication.shared.isProtectedDataAvailable, let now = self.now(), now.isFinite, now >= 0,
       (now + 30 * 60).isFinite, now + 30 * 60 > now else { return false }
     grantOwner = owner; grantedAt = now; grantedUntil = now + 30 * 60; lastGrantSample = now
     watchGrant()
@@ -140,7 +146,8 @@ final class IOSPhoneTaskConsent {
   func prepareClipboard(_ request: IOSPhoneRequest, current: @escaping () -> Bool) async -> Bool {
     guard (try? IOSPhoneOperation(request))?.usesClipboard == true else { return false }
     let operation = generation
-    let owner = Owner(runID: request.runId, sessionID: request.owner.sessionId)
+    let owner = Owner(runID: request.runId, sessionID: request.owner.sessionId,
+      permissionPreset: request.permissionPreset)
     let live = { !Task.isCancelled && current() && self.generation == operation
       && self.grantOwner == owner && self.isGranted
       && request.expiresAt > Date().timeIntervalSince1970 * 1000 }

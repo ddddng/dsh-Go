@@ -255,8 +255,8 @@
     "ohos-mcp-command-router.diff": {
       "0.2.2-rc.1": {
         "node_modules/@deepseek-ai/dsh-mcp-client/lib/index.js": {
-          "after": "04fb41ee85ceabc11948fade57eb70f66c6dd9182102cd188da0b92d78df1fff",
-          "before": "1b279593ef19f7ca2c7b46893bd897424b1fc8a5c0e0644140dbba0e488f9f99"
+          "after": "4fa2d58371c730b482ae34802d7a53c27a0e0901cb30316e1dd68da7159b85a1",
+          "before": "c7e28447504235443e5bbae1d016a2fddc61cfefc8262b65c9caf97f5d141612"
         },
         "node_modules/@modelcontextprotocol/client/dist/stdio.cjs": {
           "after": "4addd12b80580f18a024a14ee55d9007da6df937c594a07a590f731d6bef8d1d",
@@ -283,8 +283,8 @@
     "ohos-mcp-stdio-unavailable.diff": {
       "0.2.2-rc.1": {
         "node_modules/@deepseek-ai/dsh-mcp-client/lib/index.js": {
-          "after": "1b279593ef19f7ca2c7b46893bd897424b1fc8a5c0e0644140dbba0e488f9f99",
-          "before": "00e0f6f5fed9adaeb78000cd0f00ae37037c48a88d441586be936b142178d343"
+          "after": "c7e28447504235443e5bbae1d016a2fddc61cfefc8262b65c9caf97f5d141612",
+          "before": "8d76a0c98387cc9b3b38e43c79f4f592efbf7a7ceb0f33f197b800d77feb1178"
         }
       }
     },
@@ -453,6 +453,14 @@
         "node_modules/@deepseek-ai/dsh-workspace/lib/index.js": {
           "after": "6413e6c3a6d14a5518e3121ab936b599a2a46f40ab603eab39fd383c4067b72a",
           "before": "97d891ee0bc2ee8a1867a3c2420cf3ea8787b8000293771244f923de3b362658"
+        }
+      }
+    },
+    "phone-permission-preset.diff": {
+      "0.2.2-rc.1": {
+        "node_modules/@deepseek-ai/dsh-mcp-client/lib/index.js": {
+          "after": "8d76a0c98387cc9b3b38e43c79f4f592efbf7a7ceb0f33f197b800d77feb1178",
+          "before": "00e0f6f5fed9adaeb78000cd0f00ae37037c48a88d441586be936b142178d343"
         }
       }
     },
@@ -2515,7 +2523,8 @@
       "deepseek-refusal.diff",
       "deepseek-unnamed-stream-error.diff",
       "web-empty-reply-notice.diff",
-      "profile-root-installation-precedence.diff"
+      "profile-root-installation-precedence.diff",
+      "phone-permission-preset.diff"
     ],
     "ohos": [
       "cordis-effect-dispose-completion.diff",
@@ -2672,6 +2681,7 @@
       "deepseek-unnamed-stream-error.diff",
       "web-empty-reply-notice.diff",
       "profile-root-installation-precedence.diff",
+      "phone-permission-preset.diff",
       "ohos-attachment-publication.diff",
       "ohos-attachment-diagnostic.diff",
       "ohos-hap-native-libraries.diff",

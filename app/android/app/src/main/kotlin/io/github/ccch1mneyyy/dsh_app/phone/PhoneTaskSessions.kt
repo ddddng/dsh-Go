@@ -76,7 +76,8 @@ class PhoneTaskSessions(
             internal set
     }
     class Admission internal constructor(internal val task: Task?, internal val epoch: Long, internal val refusal: String? = null,
-        internal val scopeEpoch: Long? = task?.tasks?.admissionEpoch(), internal val startedAt: Long) {
+        internal val scopeEpoch: Long? = task?.tasks?.admissionEpoch(), internal val startedAt: Long,
+        internal val permissionPreset: String? = null) {
         @Volatile internal var expired = false
         internal var runner: Thread? = null // Protected by this Admission, including interrupt and detach.
     }
@@ -211,7 +212,7 @@ class PhoneTaskSessions(
             }
             if (!blocked(task) && !task.closing) lastAdmitted[task.sessionId] = task
             task.pending++
-            Admission(task, epoch, startedAt = startedAt)
+            Admission(task, epoch, startedAt = startedAt, permissionPreset = caller?.permissionPreset)
         }
     }
 
@@ -372,7 +373,7 @@ class PhoneTaskSessions(
                 executionWorker = lane
                 lane
             }
-            return task.core.call(call, selected, { remainingMs(admission) })
+            return task.core.call(call, selected, { remainingMs(admission) }, admission.permissionPreset)
         } catch (_: InterruptedException) {
             Thread.currentThread().interrupt()
             return stopped()

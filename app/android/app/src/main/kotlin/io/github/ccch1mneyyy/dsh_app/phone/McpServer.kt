@@ -12,8 +12,9 @@ class ToolOutput(
     internal var focusObservation: FocusObservation? = null
 }
 
-/** Host attribution, separate from tool arguments. It is not an approval or a task lease. */
-data class PhoneCaller(val sessionId: String, val runId: String, val callId: String, val runLifecycle: Int = 0) {
+/** Host-owned attribution and permission, separate from model arguments and native task leases. */
+data class PhoneCaller(val sessionId: String, val runId: String, val callId: String, val runLifecycle: Int = 0,
+    val permissionPreset: String? = null) {
     companion object {
         const val META_KEY = "dsh-go/phone-caller"
 
@@ -26,7 +27,9 @@ data class PhoneCaller(val sessionId: String, val runId: String, val callId: Str
             if (m["v"] != 1L) return null
             val lifecycle = if (m.containsKey("runLifecycle")) m["runLifecycle"] else 0L
             if (lifecycle != 0L && lifecycle != 1L) return null
-            return PhoneCaller(identifier(m["sessionId"]) ?: return null, identifier(m["runId"]) ?: return null, identifier(m["callId"]) ?: return null, (lifecycle as Long).toInt())
+            val permission = if (m.containsKey("permissionPreset")) identifier(m["permissionPreset"]) ?: return null else null
+            return PhoneCaller(identifier(m["sessionId"]) ?: return null, identifier(m["runId"]) ?: return null,
+                identifier(m["callId"]) ?: return null, (lifecycle as Long).toInt(), permission)
         }
     }
 }

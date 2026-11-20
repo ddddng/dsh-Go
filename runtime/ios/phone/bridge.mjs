@@ -18,8 +18,8 @@ const RESULT_BODY_BYTES = 2 * 1024 * 1024;
 // Someone signing in to a site takes longer than someone answering a prompt.
 const HANDOFF_MS = 600000;
 
-// Swift owns the bootstrap secret and every actual confirmation/action. This server has
-// no approval endpoint; /begin only confirms that the already-confirmed call is still live.
+// Swift owns the bootstrap secret and every actual confirmation/action. It also honors
+// the caller's host-resolved permission preset. /begin checks that the call is still live.
 export async function createPhoneBridge({ token, runId, timeoutMs = 120000, browserAction, systemAction }) {
   if (!/^[0-9a-f]{64}$/.test(token) || typeof runId !== 'string' || !runId) throw new Error('Invalid iOS phone bootstrap');
   const secret = Buffer.from(`Bearer ${token}`);
@@ -109,7 +109,11 @@ export async function createPhoneBridge({ token, runId, timeoutMs = 120000, brow
       if (pending.size >= 8) return Promise.resolve(failure('ERR_IOS_PHONE_BUSY', '手机动作等待队列已满，请等用户处理。'));
       const id = randomUUID();
       const limit = /-handoff$/.test(action.kind) ? Math.max(timeoutMs, HANDOFF_MS) : timeoutMs;
+      // Resolve from the executing session, never from model arguments or the app's
+      // default for new chats. A later call observes changes to this session's preset.
+      const permissionPreset = agent.ctx?.get('permissionPresets')?.current(agent.session);
       const request = Object.freeze({ v: 1, runId, id, owner: { sessionId: agent.session.id, callId },
+        ...(typeof permissionPreset === 'string' ? { permissionPreset } : {}),
         action: JSON.parse(JSON.stringify(action)), expiresAt: Date.now() + limit });
       return new Promise(resolve => {
         const abort = () => finish(id, failure('ERR_IOS_PHONE_CANCELLED', '原工具调用已取消；已开始的系统动作可能无法撤销，不要自动重试。'));

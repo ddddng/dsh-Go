@@ -7747,7 +7747,7 @@ class L10nEn extends L10n {
   String get featuresPermissionWorkspaceWriteHint => 'Edit workspace files; ask before going beyond';
 
   @override
-  String get featuresPermissionFullAccessHint => 'Run without asking';
+  String get featuresPermissionFullAccessHint => 'Run without asking, including enabled phone control';
 
   @override
   String get featuresPermissionAutoReviewHint => 'The model reviews each action and asks when unsure';
@@ -7853,7 +7853,7 @@ class L10nEn extends L10n {
   String get featuresPermissions => 'Permissions';
 
   @override
-  String get featuresPermissionsSubtitle => 'Choose when to ask before running commands or editing files';
+  String get featuresPermissionsSubtitle => 'Choose when commands, files and phone control ask for confirmation';
 
   @override
   String get featuresPermissionsReadFailed => 'Couldn’t load permissions';
@@ -9437,7 +9437,8 @@ class L10nEn extends L10n {
   String get hubSettingsFullAccessTitle => 'Turn on Full access?';
 
   @override
-  String get hubSettingsFullAccessBody => 'AI won’t ask before running commands or changing files.';
+  String get hubSettingsFullAccessBody =>
+      'AI won’t ask before running commands or changing files. Enabled phone control also runs directly, including screenshots and taps at any screen position.';
 
   @override
   String get hubSettingsStorageTitle => 'Let AI access phone files?';
@@ -12310,10 +12311,15 @@ class L10nEn extends L10n {
   String get phoneConfirmTitle => 'Confirmation';
 
   @override
+  String get phoneConfirmPermissionHint =>
+      'Full-access chats take screenshots and tap any screen position directly. Other chats use the confirmation mode selected here.';
+
+  @override
   String get phoneConfirmAlwaysTitle => 'Always skip confirmation?';
 
   @override
-  String get phoneConfirmAlwaysBody => 'Opening apps, tapping, sending and deleting will happen without asking you.';
+  String get phoneConfirmAlwaysBody =>
+      'Opening apps, taking screenshots, tapping any screen position, sending and deleting will happen without asking you.';
 
   @override
   String get phoneConfirmSaveFailed => 'Couldn’t change. Try again later.';

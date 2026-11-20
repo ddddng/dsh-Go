@@ -1536,6 +1536,25 @@ class PhoneCorePromptOwnerTest {
         assertTrue(focusRequests.isEmpty())
     }
 
+    @Test fun fullAccessFocusInputUsesOnlyTheCurrentCallsPermission() {
+        confirm = { Decision.DENY }
+        for (method in FocusInput.Method.entries) {
+            main.focusMethod = method
+            committedFocusScreen()
+            val prepared = core.prepareCall(PhoneCore.FOCUS_TEXT,
+                mapOf("observation" to "s1", "text" to "hello"), tasks.activeOwner()!!) as Either.Right<PhoneCore.PreparedCall>
+            val out = core.call(prepared.value, core.worker, permissionPreset = "danger-full-access")
+            assertFalse(out.text, out.isError)
+        }
+        assertEquals(FocusInput.Method.entries.size, main.focusInputs)
+        assertTrue(focusRequests.isEmpty())
+        assertFalse(tasks.isWaived); assertFalse(tasks.isApproved("example.app"))
+        committedFocusScreen()
+        assertTrue(focusCall().isError)
+        assertEquals(1, focusRequests.size)
+        assertEquals(FocusInput.Method.entries.size, main.focusInputs)
+    }
+
     @Test fun focusCannotUseDirectOrExpiredObservationResponse() {
         main.focusEnabled = true
         core.call(PhoneToolCatalog.SCREEN, emptyMap())

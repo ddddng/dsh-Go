@@ -49,6 +49,21 @@ class PhoneCallerTest {
         assertEquals(0, calls)
     }
 
+    @Test fun permissionPresetBelongsToEachHostCallerAndNeverComesFromToolArguments() {
+        val seen = mutableListOf<PhoneCaller?>()
+        val server = McpServer(emptyList(), { _, _, owner -> seen += owner; ToolOutput("ok") })
+        val full = server.dispatch(request(1, caller("A") + ("permissionPreset" to "danger-full-access"))) as McpServer.Dispatch.Call
+        val ordinary = server.dispatch(request(2, caller("A"), args = mapOf("permissionPreset" to "danger-full-access"))) as McpServer.Dispatch.Call
+        ordinary.run(); full.run()
+        assertNull(seen[0]?.permissionPreset)
+        assertEquals("danger-full-access", seen[1]?.permissionPreset)
+        for (invalid in listOf(null, true, 1, "", "danger-full-access\n")) {
+            val reply = server.dispatch(request(3, caller("A") + ("permissionPreset" to invalid))) as McpServer.Dispatch.Reply
+            assertEquals(McpServer.INVALID_PARAMS.toLong(), ((Json.parse(reply.line) as Map<*, *>)["error"] as Map<*, *>)["code"])
+        }
+        assertEquals(2, seen.size)
+    }
+
     @Test fun capabilityReportsEnabledIsolationAndCatalogIsUnchanged() {
         val tools = listOf(mapOf("name" to "screen", "description" to "same catalog"))
         val server = McpServer(tools, { _, _, _ -> ToolOutput("ok") })

@@ -1,0 +1,17 @@
+--- a/node_modules/@deepseek-ai/dsh-mcp-client/lib/index.js
++++ b/node_modules/@deepseek-ai/dsh-mcp-client/lib/index.js
+@@ -142,10 +142,14 @@
+ 					&& client.getServerCapabilities()?.experimental?.["dsh-go/phone-caller"]?.v === 1
+ 					? execution.phoneCaller : void 0;
+ 				if (caller !== void 0) opts.onPhoneCall?.(client, caller);
++				// Read this call's effective session permission, never the model arguments.
++				const permissionPreset = caller !== void 0 && execution.agent !== void 0
++					? execution.agent.ctx.get("permissionPresets")?.current(execution.agent.session) : void 0;
+ 				return client.callTool({
+ 					name: tool.name,
+ 					arguments: args,
+ 					...caller !== void 0 ? { _meta: { ["dsh-go/phone-caller"]: { v: 1, ...caller, callId: execution.callId,
++						...(permissionPreset !== void 0 ? { permissionPreset } : {}),
+ 						...(client.getServerCapabilities()?.experimental?.["dsh-go/phone-caller"]?.runLifecycle === 1 ? { runLifecycle: 1 } : {}) } } } : {}
+ 				}, {
+ 					signal: execution.signal,

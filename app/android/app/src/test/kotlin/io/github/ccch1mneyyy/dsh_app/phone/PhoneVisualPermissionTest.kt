@@ -80,6 +80,14 @@ class PhoneVisualPermissionTest {
         fun read(image: Boolean = true) = core.call(PhoneToolCatalog.SCREEN, mapOf("background" to true, "image" to image))
         fun tap(gesture: String = "tap") = core.call(PhoneToolCatalog.TAP_XY,
             mapOf("observation" to id, "x" to 30, "y" to 40, "action" to gesture))
+        fun tapWithPermission(permission: String?, gesture: String = "tap"): ToolOutput {
+            val prepared = core.prepareCall(PhoneToolCatalog.TAP_XY,
+                mapOf("observation" to id, "x" to 30, "y" to 40, "action" to gesture), tasks.activeOwner()!!)
+            return when (prepared) {
+                is Either.Left -> prepared.value
+                is Either.Right -> core.call(prepared.value, core.worker, permissionPreset = permission)
+            }
+        }
         override fun close() { core.worker.shutdown() }
     }
 
@@ -100,6 +108,32 @@ class PhoneVisualPermissionTest {
             repeat(2) { f.read(); assertFalse(f.tap().isError) }
             assertTrue(f.asks.isEmpty())
             assertFalse(f.tasks.isApproved("example.app")); assertFalse(f.tasks.isWaived)
+        }
+    }
+    @Test fun fullAccessCoversKnownAndUnknownCoordinatesWithoutPersistingVisualOrAppGrants() {
+        Fixture().use { f ->
+            f.decision = { Decision.DENY }
+            for ((known, gesture) in listOf(true to "tap", false to "tap", false to "long")) {
+                f.knownTarget = known
+                assertNotNull(f.read().image)
+                assertFalse(f.tapWithPermission("danger-full-access", gesture).isError)
+            }
+            assertEquals(3, f.actions); assertTrue(f.asks.isEmpty())
+            assertFalse(f.tasks.isApproved("example.app")); assertFalse(f.tasks.isWaived)
+            assertFalse(f.tasks.hasVisualGrant(f.tasks.activeOwner()!!, f.scope!!))
+            f.knownTarget = true
+            f.read()
+            assertTrue(f.tapWithPermission("default").isError)
+            assertEquals(1, f.asks.size); assertEquals(3, f.actions)
+        }
+    }
+
+    @Test fun fullAccessRetainsTheSelectedAppReadAndWriteRules() {
+        Fixture().use { f ->
+            f.read()
+            f.policy = PhonePolicies(denyPackages = listOf("example.app"))
+            assertTrue(f.tapWithPermission("danger-full-access").isError)
+            assertEquals(0, f.actions); assertTrue(f.asks.isEmpty())
         }
     }
     @Test fun textOnlyVisualPointsHonorWaiverForUnknownTargets() {

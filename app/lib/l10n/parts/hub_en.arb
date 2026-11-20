@@ -33,7 +33,7 @@
   "hubTabSubagents": "Subagents",
   "hubPlugins": "Plugins",
   "hubSettingsFullAccessTitle": "Turn on Full access?",
-  "hubSettingsFullAccessBody": "AI won’t ask before running commands or changing files.",
+  "hubSettingsFullAccessBody": "AI won’t ask before running commands or changing files. Enabled phone control also runs directly, including screenshots and taps at any screen position.",
   "hubSettingsStorageTitle": "Let AI access phone files?",
   "hubSettingsStorageAllow": "Allow access",
   "hubSettingsStorageDenied": "Storage access wasn’t granted. Allow “All files access” for DSH Go in system settings, then try again.",

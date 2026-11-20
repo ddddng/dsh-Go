@@ -129,3 +129,57 @@ test('owner must follow rc.4 Agent.session.id; exact payload is snapshotted and 
   await bridge.close();
   assert.match((await waiting).content[0].text, /RETIRED/);
 });
+
+test('screenshots and coordinate taps carry the current host permission, ignoring model claims', async t => {
+  const { bridge, post, execution } = await fixture(t);
+  let preset = 'read-only';
+  execution.agent.ctx = {
+    get(name) {
+      assert.equal(name, 'permissionPresets');
+      return { current(session) { assert.equal(session, execution.agent.session); return preset; } };
+    },
+  };
+  for (const [name, current, args] of [
+    ['screen', 'read-only', { image: true }],
+    ['tap_xy', 'danger-full-access', { observation: 's1', x: 48, y: 96 }],
+    ['screen', 'workspace-write', { image: true }],
+  ]) {
+    preset = current;
+    const waiting = bridge.call(name, { ...args, permissionPreset: 'danger-full-access', fullAccess: true }, execution);
+    const { request } = (await post('/claim')).body;
+    assert.equal(request.permissionPreset, current);
+    assert.equal(request.action.method, name);
+    assert.equal(request.owner.sessionId, execution.agent.session.id);
+    await post('/result', { id: request.id, text: 'test completed without device action', isError: true });
+    await waiting;
+  }
+});
+
+test('queued phone calls keep each session permission separate', async t => {
+  const { bridge, post, execution } = await fixture(t);
+  const presets = new Map([['session-1', 'danger-full-access'], ['session-2', 'read-only']]);
+  const ctx = { get: () => ({ current: session => presets.get(session.id) }) };
+  const first = bridge.call('screen', { image: true }, { ...execution, agent: { ...execution.agent, ctx } });
+  const second = bridge.call('tap_xy', { observation: 's2', x: 12, y: 34 }, {
+    ...execution, callId: 'call-2', agent: { session: { id: 'session-2' }, ctx },
+  });
+  const a = (await post('/claim')).body.request;
+  assert.equal(a.permissionPreset, 'danger-full-access');
+  assert.equal(a.owner.sessionId, 'session-1');
+  await post('/result', { id: a.id, text: 'done', isError: true });
+  await first;
+  const b = (await post('/claim')).body.request;
+  assert.equal(b.permissionPreset, 'read-only');
+  assert.equal(b.owner.sessionId, 'session-2');
+  await post('/result', { id: b.id, text: 'done', isError: true });
+  await second;
+});
+
+test('older callers without a permission service do not gain full access', async t => {
+  const { bridge, post, execution } = await fixture(t);
+  const waiting = bridge.call('screen', { image: true, permissionPreset: 'danger-full-access' }, execution);
+  const { request } = (await post('/claim')).body;
+  assert.equal(Object.hasOwn(request, 'permissionPreset'), false);
+  await post('/result', { id: request.id, text: 'done', isError: true });
+  await waiting;
+});

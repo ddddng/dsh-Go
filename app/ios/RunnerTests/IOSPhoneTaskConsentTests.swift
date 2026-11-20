@@ -167,23 +167,29 @@ final class IOSPhoneTaskConsentTests: XCTestCase {
   }
 
   private func request(run: String = "synthetic-consent-run",
-                       session: String = "synthetic-consent-session", clipboard: Bool = false) throws -> Runner.IOSPhoneRequest {
-    let params = clipboard ? "{\"screen\":\"s1\",\"id\":1,\"text\":\"合成输入\"}" : "{}"
-    let envelope: [String: Any] = [
+                       session: String = "synthetic-consent-session", clipboard: Bool = false,
+                       permissionPreset: String? = nil, method: String = "apps") throws -> Runner.IOSPhoneRequest {
+    let params = clipboard ? "{\"screen\":\"s1\",\"id\":1,\"text\":\"合成输入\"}"
+      : method == "tap_xy" ? "{\"observation\":\"s1\",\"x\":48,\"y\":96}"
+      : method == "screen" ? "{\"image\":true}" : "{}"
+    var envelope: [String: Any] = [
       "v": 1, "runId": run, "id": UUID().uuidString,
       "owner": ["sessionId": session, "callId": UUID().uuidString],
-      "action": ["kind": "runner-call", "method": clipboard ? "type" : "apps", "params": params],
+      "action": ["kind": "runner-call", "method": clipboard ? "type" : method, "params": params],
       "expiresAt": Date().addingTimeInterval(600).timeIntervalSince1970 * 1000,
     ]
+    if let permissionPreset { envelope["permissionPreset"] = permissionPreset }
     return try JSONDecoder().decode(Runner.IOSPhoneRequest.self,
       from: JSONSerialization.data(withJSONObject: envelope))
   }
 
   private func start(_ fixture: Fixture, run: String = "synthetic-consent-run",
-                     session: String = "synthetic-consent-session", clipboard: Bool = false) throws -> RunningApproval {
+                     session: String = "synthetic-consent-session", clipboard: Bool = false,
+                     permissionPreset: String? = nil, method: String = "apps") throws -> RunningApproval {
     let finished = expectation(description: "production consent settled")
     finished.assertForOverFulfill = true
-    let operation = RunningApproval(request: try request(run: run, session: session, clipboard: clipboard),
+    let operation = RunningApproval(request: try request(run: run, session: session, clipboard: clipboard,
+      permissionPreset: permissionPreset, method: method),
       fixture: fixture, finished: finished, clipboard: clipboard)
     fixture.operations.append(operation)
     return operation
@@ -274,6 +280,56 @@ final class IOSPhoneTaskConsentTests: XCTestCase {
       eligible: true), .waiting)
     XCTAssertEqual(wait.sample(now: 130.75, background: true, protectedDataAvailable: true,
       eligible: true), .ready)
+  }
+
+  func testFullAccessScreenshotsAndCoordinateTapsDoNotPresentConfirmation() async throws {
+    try await withFixture { fixture in
+      fixture.state.foreground = false
+      for method in ["screen", "tap_xy", "screen"] {
+        let operation = try self.start(fixture, permissionPreset: "danger-full-access", method: method)
+        try await self.completed(operation, expected: true)
+      }
+      XCTAssertTrue(fixture.consent.isGranted)
+      XCTAssertEqual(fixture.state.presentationAttempts, 0)
+      XCTAssertEqual(fixture.state.admittedContinuations, 3)
+    }
+  }
+
+  func testLeavingFullAccessRequiresNewTaskConfirmation() async throws {
+    try await withFixture { fixture in
+      let full = try self.start(fixture, permissionPreset: "danger-full-access", method: "screen")
+      try await self.completed(full, expected: true)
+      let restricted = try self.start(fixture, permissionPreset: "workspace-write", method: "tap_xy")
+      let sheet = try await self.nextSheet(fixture, operation: restricted, grant: true)
+      try self.answer(sheet, title: Self.denyButton)
+      try await self.completed(restricted, expected: false)
+      XCTAssertEqual(fixture.state.presentationAttempts, 1)
+      XCTAssertEqual(fixture.state.admittedContinuations, 1)
+    }
+  }
+
+  func testFullAccessDoesNotAuthorizeAnotherConversation() async throws {
+    try await withFixture { fixture in
+      let full = try self.start(fixture, permissionPreset: "danger-full-access", method: "screen")
+      try await self.completed(full, expected: true)
+      let other = try self.start(fixture, session: "another-session", method: "tap_xy")
+      let sheet = try await self.nextSheet(fixture, operation: other, grant: true)
+      try self.answer(sheet, title: Self.denyButton)
+      try await self.completed(other, expected: false)
+      XCTAssertEqual(fixture.state.presentationAttempts, 1)
+      XCTAssertEqual(fixture.state.admittedContinuations, 1)
+    }
+  }
+
+  func testFullAccessStillRejectsACancelledCall() async throws {
+    try await withFixture { fixture in
+      fixture.state.current = false
+      let operation = try self.start(fixture, permissionPreset: "danger-full-access", method: "screen")
+      try await self.completed(operation, expected: false)
+      XCTAssertFalse(fixture.consent.isGranted)
+      XCTAssertEqual(fixture.state.presentationAttempts, 0)
+      XCTAssertEqual(fixture.state.admittedContinuations, 0)
+    }
   }
 
   func testTargetWaitStartsItsDelayOnlyAfterLeavingTheController() throws {

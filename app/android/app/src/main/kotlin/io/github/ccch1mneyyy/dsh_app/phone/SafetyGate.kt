@@ -193,6 +193,8 @@ class SafetyGate(
     private val gate: () -> UserGate?,
     private val ownPackage: String = SafetyRules.OWN_PACKAGE,
     private val uiText: PhoneUiText = PhoneUiText.DEFAULT,
+    /** This invocation's host permission; never persisted as a task or App grant. */
+    private val fullAccess: Boolean = false,
 ) {
     sealed interface Verdict {
         object Allow : Verdict
@@ -330,9 +332,9 @@ class SafetyGate(
             firstInApp = false, allowRound = false, visualScope = visual.scope), t.packageName, "first-visual")
     }
 
-    /** Nothing more to ask: 始终免确认, or 本任务免确认 already granted for this task. */
+    /** This call's full access, 始终免确认, or 本任务免确认 already granted for this task. */
     fun waived(p: PhonePolicies = policies()): Boolean =
-        p.confirmMode == ConfirmMode.ALWAYS || (p.confirmMode == ConfirmMode.TASK && tasks.isWaived)
+        fullAccess || p.confirmMode == ConfirmMode.ALWAYS || (p.confirmMode == ConfirmMode.TASK && tasks.isWaived)
 
     /**
      * A plain confirmation the core needs outside [checkWrite] (moving an app to the background

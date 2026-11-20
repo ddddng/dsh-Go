@@ -62,7 +62,7 @@ class PhoneCore(
     private val executionStatus = ThreadLocal<((() -> Unit) -> Boolean)>()
 
     /** The overlay's status line; 免确认 stays visible the whole time nothing is asked. */
-    private fun say(owner: PhoneTasks.Owner, text: String) {
+    private fun say(owner: PhoneTasks.Owner, text: String, safety: SafetyGate = this.safety) {
         if (!current(owner)) return
         val guard = executionStatus.get() ?: return
         env.gate()?.status(if (safety.waived()) ui.get("phone_waived_status", "免确认 · %1\$s", text) else text, guard) // l10n:keep test default
@@ -129,7 +129,7 @@ class PhoneCore(
             replayDriver = originalDriver, replayApp = app.takeIf { screen == PhoneScreen.BACKGROUND }))
     }
 
-    private fun replay(call: PreparedCall, scope: SerialWorker.Scope, owner: PhoneTasks.Owner): Out {
+    private fun replay(call: PreparedCall, scope: SerialWorker.Scope, owner: PhoneTasks.Owner, safety: SafetyGate): Out {
         val selection = checkNotNull(call.replay)
         val selections = checkNotNull(call.replaySelections)
         val outcomes = checkNotNull(call.replayOutcomes)
@@ -235,8 +235,10 @@ class PhoneCore(
         }
     }
 
-    internal fun call(prepared: PreparedCall, executionWorker: SerialWorker, remainingMs: () -> Long = { MAX_TOTAL_MS }): ToolOutput =
-        runCall(prepared.name, prepared.args, AtomicReference<PhoneTasks.Owner?>(prepared.owner), prepared, executionWorker, remainingMs)
+    internal fun call(prepared: PreparedCall, executionWorker: SerialWorker, remainingMs: () -> Long = { MAX_TOTAL_MS },
+                      permissionPreset: String? = null): ToolOutput =
+        runCall(prepared.name, prepared.args, AtomicReference<PhoneTasks.Owner?>(prepared.owner), prepared,
+            executionWorker, remainingMs, permissionPreset)
 
     fun call(name: String, args: Map<String, Any?>, admittedOwner: PhoneTasks.Owner? = null): ToolOutput {
         // In flight from here until the result goes back: no turn ends while a call runs (PhoneTasks.finish).
@@ -263,13 +265,14 @@ class PhoneCore(
     }
 
     private fun runCall(name: String, args: Args, callOwner: AtomicReference<PhoneTasks.Owner?>, prepared: PreparedCall? = null,
-                        executionWorker: SerialWorker = worker, remainingMs: () -> Long = { MAX_TOTAL_MS }): ToolOutput {
+                        executionWorker: SerialWorker = worker, remainingMs: () -> Long = { MAX_TOTAL_MS },
+                        permissionPreset: String? = null): ToolOutput {
         if (prepared?.replay == null) rejection(name)?.let { return it }
         val remaining = remainingMs()
         val outcome = if (remaining <= 0) SerialWorker.Outcome.TimedOut(queued = true) else
             executionWorker.run(budgetMs(name), remaining, owner = tasks) { scope ->
                 if (remainingMs() <= 0) throw InterruptedException()
-                execute(name, args, scope, callOwner, prepared)
+                execute(name, args, scope, callOwner, prepared, permissionPreset)
             }
         val owner = callOwner.get()
         if (owner != null && name in TRACE_ACTIONS && outcome !is SerialWorker.Outcome.Done) {
@@ -328,7 +331,11 @@ class PhoneCore(
         }
     }
 
-    private fun execute(name: String, a: Args, scope: SerialWorker.Scope, callOwner: AtomicReference<PhoneTasks.Owner?>, prepared: PreparedCall?): Out {
+    private fun execute(name: String, a: Args, scope: SerialWorker.Scope, callOwner: AtomicReference<PhoneTasks.Owner?>,
+                        prepared: PreparedCall?, permissionPreset: String?): Out {
+        // Captured by this call's driver callbacks too; no queued call or other task can replace it.
+        val safety = SafetyGate(env::policies, tasks, env::gate, uiText = env.uiText(),
+            fullAccess = permissionPreset == "danger-full-access")
         val admitted = callOwner.get()
         val owner = admitted ?: when (val b = tasks.begin()) {
             is PhoneTasks.Begin.Refused -> return Out(b.message + "。", error = true, summary = name, decision = "stopped")
@@ -369,18 +376,18 @@ class PhoneCore(
                 is Either.Right -> result.value
             }
             if (!current(owner)) return stoppedOut(name)
-            if (call.replay != null) return replay(call, scope, owner)
+            if (call.replay != null) return replay(call, scope, owner, safety)
             return when (name) {
                 PhoneToolCatalog.ANDROID_SHELL -> androidShell(a, scope, owner)
                 PhoneToolCatalog.APPS -> apps(a, owner)
-                PhoneToolCatalog.OPEN -> open(call, scope, owner)
-                PhoneToolCatalog.INTENT -> intent(call, scope, owner)
+                PhoneToolCatalog.OPEN -> open(call, scope, owner, safety)
+                PhoneToolCatalog.INTENT -> intent(call, scope, owner, safety)
                 PhoneToolCatalog.NOTIFY -> notify(a, owner)
                 PhoneToolCatalog.CLIPBOARD -> clipboard(a, owner)
-                PhoneToolCatalog.SCREEN -> screen(a, owner)
+                PhoneToolCatalog.SCREEN -> screen(a, owner, safety)
                 PhoneToolCatalog.COLLECT -> collect(a, owner)
-                FOCUS_TEXT -> focusText(a, scope, owner)
-                PhoneToolCatalog.TAP, PhoneToolCatalog.TYPE, PhoneToolCatalog.SCROLL, PhoneToolCatalog.TAP_XY -> act(name, a, scope, owner)
+                FOCUS_TEXT -> focusText(a, scope, owner, safety)
+                PhoneToolCatalog.TAP, PhoneToolCatalog.TYPE, PhoneToolCatalog.SCROLL, PhoneToolCatalog.TAP_XY -> act(name, a, scope, owner, safety)
                 PhoneToolCatalog.KEY -> key(a, owner)
                 PhoneToolCatalog.HANDOFF -> handoff(a, scope, owner)
                 // l10n:keep agent tool result
@@ -519,7 +526,7 @@ class PhoneCore(
         return Either.Right(PreparedCall(name, a, owner, screens, launch, requestedApp))
     }
 
-    private fun open(call: PreparedCall, scope: SerialWorker.Scope, owner: PhoneTasks.Owner): Out {
+    private fun open(call: PreparedCall, scope: SerialWorker.Scope, owner: PhoneTasks.Owner, safety: SafetyGate): Out {
         if (!current(owner)) return stoppedOut("open")
         val a = call.args
         val url = a.str("url")
@@ -535,7 +542,7 @@ class PhoneCore(
                 }
             }
             if (!current(owner)) return stoppedOut("open")
-            confirmSystem(plan, scope, owner, summary)?.let { return it }
+            confirmSystem(plan, scope, owner, summary, safety)?.let { return it }
             skillTrace.markIncomplete(owner)
             val r = launchSystem(plan, owner)
             return afterSystem(owner, scope, r, summary)
@@ -549,7 +556,7 @@ class PhoneCore(
         if (!background) {
             if (!tasks.isCurrent(owner) || Thread.currentThread().isInterrupted) return stoppedOut("open")
             val summary = ui.get("phone_log_open_app", "打开 %1\$s", app.packageName) // l10n:keep test default
-            confirmSystem(plan, scope, owner, summary)?.let { return it }
+            confirmSystem(plan, scope, owner, summary, safety)?.let { return it }
             val ticket = skillTrace.beginOpen(owner, PhoneScreen.MAIN)
             val result = try {
                 launchSystem(plan, owner, call.requestedApp).also {
@@ -572,7 +579,7 @@ class PhoneCore(
         }
         if (!tasks.isCurrent(owner) || Thread.currentThread().isInterrupted) return stoppedOut("open")
         lastScreen = PhoneScreen.BACKGROUND
-        say(owner, ui.get("phone_opening_background", "DSH 正在后台屏打开「%1\$s」", app.label)) // l10n:keep test default
+        say(owner, ui.get("phone_opening_background", "DSH 正在后台屏打开「%1\$s」", app.label), safety) // l10n:keep test default
         if (!current(owner)) return stoppedOut("open")
         // The user may tighten the app list while the original move confirmation is waiting.
         safety.checkOpen(app.packageName, app.label)?.let {
@@ -687,7 +694,7 @@ class PhoneCore(
         }
     }
 
-    private fun intent(call: PreparedCall, scope: SerialWorker.Scope, owner: PhoneTasks.Owner): Out {
+    private fun intent(call: PreparedCall, scope: SerialWorker.Scope, owner: PhoneTasks.Owner, safety: SafetyGate): Out {
         if (!current(owner)) return stoppedOut("intent")
         val kind = call.args.str("kind") ?: ""
         if (env.isLocked()) return locked("intent $kind")
@@ -704,14 +711,14 @@ class PhoneCore(
             }
         }
         if (!current(owner)) return stoppedOut("intent $kind")
-        confirmSystem(plan, scope, owner, "intent $kind")?.let { return it }
+        confirmSystem(plan, scope, owner, "intent $kind", safety)?.let { return it }
         skillTrace.markIncomplete(owner)
         val r = launchSystem(plan, owner, subject)
         return afterSystem(owner, scope, r, "intent $kind")
     }
 
     private fun confirmSystem(plan: SystemLaunch, scope: SerialWorker.Scope,
-                              owner: PhoneTasks.Owner, summary: String): Out? {
+                              owner: PhoneTasks.Owner, summary: String, safety: SafetyGate): Out? {
         // A chooser is already the user's own pick; only an unnamed handler needs a confirmation.
         if (plan.target !is SystemTarget.Unknown) return null
         plan.packageName?.let { pkg ->
@@ -869,7 +876,7 @@ class PhoneCore(
         return shown
     }
 
-    private fun screen(a: Args, owner: PhoneTasks.Owner): Out {
+    private fun screen(a: Args, owner: PhoneTasks.Owner, safety: SafetyGate): Out {
         if (!current(owner)) return stoppedOut("screen")
         val which = if (a.bool("background") == true) PhoneScreen.BACKGROUND else PhoneScreen.MAIN
         val summary = if (which == PhoneScreen.BACKGROUND) ui.get("phone_log_background_read", "读后台屏") else ui.get("phone_log_screen_read", "读屏") // l10n:keep test default
@@ -879,7 +886,7 @@ class PhoneCore(
         }
         if (env.isLocked()) return locked(summary)
         lastScreen = which
-        say(owner, if (which == PhoneScreen.BACKGROUND) ui.get("phone_reading_background", "DSH 正在看后台屏") else ui.get("phone_reading_screen", "DSH 正在看屏幕")) // l10n:keep test default
+        say(owner, if (which == PhoneScreen.BACKGROUND) ui.get("phone_reading_background", "DSH 正在看后台屏") else ui.get("phone_reading_screen", "DSH 正在看屏幕"), safety) // l10n:keep test default
         if (!current(owner)) return stoppedOut(summary)
         val snap = driver.observe(detail = a.bool("detail") == true, image = a.strictBool("image") == true,
             automaticImage = !a.provided("image"))
@@ -976,7 +983,7 @@ class PhoneCore(
     }
 
     /** Selection insertion is distinct from type's whole-field replacement and never submits. */
-    private fun focusText(a: Args, scope: SerialWorker.Scope, owner: PhoneTasks.Owner): Out {
+    private fun focusText(a: Args, scope: SerialWorker.Scope, owner: PhoneTasks.Owner, safety: SafetyGate): Out {
         val summary = "焦点输入（内容不记录）" // l10n:keep agent focus result
         val text = a.strictText("text")
         if (!a.onlyKeys("observation", "text") || text == null || text.isEmpty() || text.length > 500 ||
@@ -1052,7 +1059,7 @@ class PhoneCore(
     }
 
     /** tap / type / scroll / tap_xy: route, resolve, gate, perform. */
-    private fun act(name: String, a: Args, scope: SerialWorker.Scope, owner: PhoneTasks.Owner): Out {
+    private fun act(name: String, a: Args, scope: SerialWorker.Scope, owner: PhoneTasks.Owner, safety: SafetyGate): Out {
         if (!current(owner)) return stoppedOut(name)
         val screenParameter = actionScreenParameter(name)
         val sid = a.str(screenParameter)
@@ -1186,7 +1193,7 @@ class PhoneCore(
         }
         if (!tasks.isCurrent(owner) || Thread.currentThread().isInterrupted) return stoppedOut(summary)
         if (!tasks.setAppIfCurrent(owner, appLabel ?: pkg)) return stoppedOut(summary)
-        say(owner, ui.get("phone_acting", "DSH 正在操作 · %1\$s", statusLine(kind, target, if (secret) SafetyRules.MASK else typed))) // l10n:keep test default
+        say(owner, ui.get("phone_acting", "DSH 正在操作 · %1\$s", statusLine(kind, target, if (secret) SafetyRules.MASK else typed)), safety) // l10n:keep test default
         if (!current(owner)) return stoppedOut(summary)
         fun actionSourcesAllowed(sources: Set<String>): Boolean {
             if (policyFailure.get() != null) return false

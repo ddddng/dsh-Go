@@ -111,6 +111,36 @@ class PhoneTaskSessionsTest {
 
     private fun journalCount(): Int = journalBytes?.let { ((Json.parse(it) as Map<*, *>)["records"] as List<*>).size } ?: 0
 
+    @Test fun fullAccessFollowsEachAdmissionWithoutGrantingTheNextCallOrAnotherSession() {
+        var asks = 0
+        confirm = { asks++; Decision.DENY }
+        val full = sessions.admit(PhoneCaller("A", "1", "full", 1, "danger-full-access"))
+        val ordinary = sessions.admit(PhoneCaller("A", "1", "ordinary", 1, "default"))
+        val coordinate = mapOf("observation" to "s1", "x" to 12, "y" to 34)
+        assertFalse(sessions.run(full, PhoneToolCatalog.TAP_XY, coordinate).isError)
+        assertTrue(sessions.run(ordinary, PhoneToolCatalog.TAP_XY, coordinate).isError)
+        assertFalse(task("A").tasks.isWaived)
+        assertFalse(task("A").tasks.isApproved("example.app"))
+        assertTrue(sessions.run(admit("A"), PhoneToolCatalog.TAP_XY, coordinate).isError)
+        assertEquals(2, asks)
+        end("A")
+        assertTrue(sessions.run(admit("B"), PhoneToolCatalog.TAP_XY, coordinate).isError)
+        assertEquals(3, asks)
+        assertEquals(1L, actions.get())
+    }
+
+    @Test fun fullAccessStillHonorsPhoneDisableAndStop() {
+        val coordinate = mapOf("observation" to "s1", "x" to 12, "y" to 34)
+        fun full() = sessions.admit(PhoneCaller("A", "1", "full", 1, "danger-full-access"))
+        enabled = false
+        assertTrue(sessions.run(full(), PhoneToolCatalog.TAP_XY, coordinate).isError)
+        enabled = true
+        val queued = full()
+        sessions.stopAll("stop")
+        assertTrue(sessions.run(queued, PhoneToolCatalog.TAP_XY, coordinate).isError)
+        assertEquals(0L, actions.get())
+    }
+
     @Test fun callerCapabilitySurvivesRetirementAndOnlyANewLaunchResetsIt() {
         sessions.beginCallerLaunch()
         assertEquals(mapOf("launch" to 1L, "modernSeen" to false), sessions.callerCapability())

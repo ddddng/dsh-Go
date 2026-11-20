@@ -176,6 +176,10 @@ class _PhoneControlScreenState extends ConsumerState<PhoneControlScreen> {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(20, 4, 20, 16),
+                      child: Text(context.l10n.phoneConfirmPermissionHint),
+                    ),
                     SheetGroup(
                       children: [
                         for (final mode in PhoneConfirmMode.values)

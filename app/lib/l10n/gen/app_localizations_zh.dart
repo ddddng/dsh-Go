@@ -7340,7 +7340,7 @@ class L10nZh extends L10n {
   String get featuresPermissionWorkspaceWriteHint => '可改工作区内的文件，越界先问你';
 
   @override
-  String get featuresPermissionFullAccessHint => '不再确认，直接执行';
+  String get featuresPermissionFullAccessHint => '免确认执行，包含已开启的手机操控';
 
   @override
   String get featuresPermissionAutoReviewHint => '由模型逐次审查，拿不准再问你';
@@ -7444,7 +7444,7 @@ class L10nZh extends L10n {
   String get featuresPermissions => '权限';
 
   @override
-  String get featuresPermissionsSubtitle => '执行命令、修改文件前，要不要先问你';
+  String get featuresPermissionsSubtitle => '选择命令、文件和手机操控何时询问';
 
   @override
   String get featuresPermissionsReadFailed => '没能读取权限设置';
@@ -8941,7 +8941,7 @@ class L10nZh extends L10n {
   String get hubSettingsFullAccessTitle => '开启完全权限？';
 
   @override
-  String get hubSettingsFullAccessBody => 'AI 执行命令、改动文件前不再问你。';
+  String get hubSettingsFullAccessBody => 'AI 执行命令、改动文件前不再问你；已开启的手机操控也直接执行，包括截图和任意位置点按。';
 
   @override
   String get hubSettingsStorageTitle => '让 AI 访问手机文件？';
@@ -11698,10 +11698,13 @@ class L10nZh extends L10n {
   String get phoneConfirmTitle => '确认方式';
 
   @override
+  String get phoneConfirmPermissionHint => '完全权限对话可直接截图和点按任意位置；其他对话按这里的确认方式执行。';
+
+  @override
   String get phoneConfirmAlwaysTitle => '始终免确认？';
 
   @override
-  String get phoneConfirmAlwaysBody => '打开 App、点按、发送、删除都直接做，不再问你。';
+  String get phoneConfirmAlwaysBody => '打开 App、截图、任意位置点按、发送、删除都直接做，不再问你。';
 
   @override
   String get phoneConfirmSaveFailed => '没改成，稍后再试';

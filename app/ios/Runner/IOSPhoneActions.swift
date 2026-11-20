@@ -34,8 +34,11 @@ struct IOSPhoneRequest: Decodable {
   let runId: String
   let id: String
   let owner: Owner
+  /// Resolved by the engine for this call; never read from action parameters.
+  let permissionPreset: String?
   let action: Action
   let expiresAt: Double
+  var hasFullAccess: Bool { permissionPreset == "danger-full-access" }
 }
 struct IOSPhoneOutcome {
   let text: String

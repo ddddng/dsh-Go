@@ -26,6 +26,10 @@ void main() {
     for (final label in ['每次都询问', '本任务免确认', '始终免确认']) {
       expect(find.descendant(of: find.byType(BottomSheet), matching: find.text(label)), findsOneWidget);
     }
+    expect(
+      find.descendant(of: find.byType(BottomSheet), matching: find.text('完全权限对话可直接截图和点按任意位置；其他对话按这里的确认方式执行。')),
+      findsOneWidget,
+    );
     // Under the three: what stays with you whichever is picked (test/phone/phone_unlock_test.dart).
     final yours = find.descendant(of: find.byType(BottomSheet), matching: find.text('这些由你来操作'));
     expect(yours, findsOneWidget);
@@ -37,7 +41,7 @@ void main() {
     // The every-time risk notice: no 「不再提示」, the action named on its key.
     expect(find.byType(RiskNoticeSheet), findsOneWidget);
     expect(find.text('始终免确认？'), findsOneWidget);
-    expect(find.text('打开 App、点按、发送、删除都直接做，不再问你。'), findsOneWidget);
+    expect(find.text('打开 App、截图、任意位置点按、发送、删除都直接做，不再问你。'), findsOneWidget);
     expect(find.byType(Checkbox), findsNothing);
     expect(find.text('不确定？问 AI'), findsOneWidget);
     await tester.tap(find.descendant(of: find.byType(SheetHeader), matching: find.byType(SheetIconButton)));

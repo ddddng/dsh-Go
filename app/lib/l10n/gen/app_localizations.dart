@@ -13613,7 +13613,7 @@ abstract class L10n {
   /// No description provided for @featuresPermissionFullAccessHint.
   ///
   /// In zh, this message translates to:
-  /// **'不再确认，直接执行'**
+  /// **'免确认执行，包含已开启的手机操控'**
   String get featuresPermissionFullAccessHint;
 
   /// No description provided for @featuresPermissionAutoReviewHint.
@@ -13805,7 +13805,7 @@ abstract class L10n {
   /// No description provided for @featuresPermissionsSubtitle.
   ///
   /// In zh, this message translates to:
-  /// **'执行命令、修改文件前，要不要先问你'**
+  /// **'选择命令、文件和手机操控何时询问'**
   String get featuresPermissionsSubtitle;
 
   /// No description provided for @featuresPermissionsReadFailed.
@@ -16577,7 +16577,7 @@ abstract class L10n {
   /// No description provided for @hubSettingsFullAccessBody.
   ///
   /// In zh, this message translates to:
-  /// **'AI 执行命令、改动文件前不再问你。'**
+  /// **'AI 执行命令、改动文件前不再问你；已开启的手机操控也直接执行，包括截图和任意位置点按。'**
   String get hubSettingsFullAccessBody;
 
   /// No description provided for @hubSettingsStorageTitle.
@@ -21818,6 +21818,12 @@ abstract class L10n {
   /// **'确认方式'**
   String get phoneConfirmTitle;
 
+  /// No description provided for @phoneConfirmPermissionHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'完全权限对话可直接截图和点按任意位置；其他对话按这里的确认方式执行。'**
+  String get phoneConfirmPermissionHint;
+
   /// No description provided for @phoneConfirmAlwaysTitle.
   ///
   /// In zh, this message translates to:
@@ -21827,7 +21833,7 @@ abstract class L10n {
   /// No description provided for @phoneConfirmAlwaysBody.
   ///
   /// In zh, this message translates to:
-  /// **'打开 App、点按、发送、删除都直接做，不再问你。'**
+  /// **'打开 App、截图、任意位置点按、发送、删除都直接做，不再问你。'**
   String get phoneConfirmAlwaysBody;
 
   /// No description provided for @phoneConfirmSaveFailed.

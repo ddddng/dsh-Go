@@ -257,6 +257,7 @@ class _PermissionPageState extends ConsumerState<PermissionPage> {
         if (android) ...[
           const SizedBox(height: 24),
           phone,
+          FeatureNote(l10n.phoneConfirmPermissionHint),
         ] else if (ref.watch(systemActionsProvider.select((s) => s.enabled)))
           FeatureNote(l10n.systemActionsPermissionNote),
       ],

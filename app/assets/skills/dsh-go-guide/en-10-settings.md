@@ -75,7 +75,7 @@ Shows your DeepSeek account or API key and balance; tap it to open your account.
 <!-- nav: commonSettings,featuresPermissions -->
 `Settings › Permissions` · [Open](dshgo://open/permission)
 
-- **Current chat**: shown with a chat open; changes that chat only.
+- **Current chat**: shown with a chat open; changes that chat only. **Full access** also includes enabled phone control, so screenshots and taps at any screen position run directly. After switching to another preset, subsequent calls follow the applicable confirmation mode again.
 - **Default for new chats**: **Read only**, **Workspace write** or **Full access**. Choosing **Full access** asks **Turn on Full access?** first. On this phone's engine it is what used to be "Auto-run commands": in chats and automations you create in the native interface on this phone's engine, the AI no longer asks before running commands or changing files. Remote hosts, Web mode, Safe mode and existing chats aren't affected. Switching back doesn't change chats created while it was on; change those in the chat's permissions.
 - **Access phone files**: after you grant storage access, your phone's storage appears under /sdcard in Linux and the AI can read and write it. Turning it on or off restarts a running engine, interrupting replies in progress. Shown only with this phone's engine.
-- **Phone control confirmation**: opens **Confirmation** on the Phone control page; see [Phone control](04-phone-control.md).
+- **Phone control confirmation**: opens **Confirmation** on the Phone control page. Full-access chats run phone actions directly; other chats follow this setting. Each chat keeps its own permissions. See [Phone control](04-phone-control.md).

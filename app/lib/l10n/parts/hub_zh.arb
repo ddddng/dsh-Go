@@ -33,7 +33,7 @@
   "hubTabSubagents": "子代理",
   "hubPlugins": "插件",
   "hubSettingsFullAccessTitle": "开启完全权限？",
-  "hubSettingsFullAccessBody": "AI 执行命令、改动文件前不再问你。",
+  "hubSettingsFullAccessBody": "AI 执行命令、改动文件前不再问你；已开启的手机操控也直接执行，包括截图和任意位置点按。",
   "hubSettingsStorageTitle": "让 AI 访问手机文件？",
   "hubSettingsStorageAllow": "允许读写",
   "hubSettingsStorageDenied": "没有拿到存储权限。到系统设置里给 DSH Go 开启「所有文件访问」后再试",
